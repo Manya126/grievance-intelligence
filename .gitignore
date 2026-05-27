@@ -1,0 +1,9 @@
+.env
+venv/
+__pycache__/
+*.pyc
+*.db
+data/raw/
+data/processed/
+models_saved/
+reports_output/
