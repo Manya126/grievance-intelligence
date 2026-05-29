@@ -12,13 +12,39 @@ ROOT = Path(__file__).resolve().parents[2]
 
 @st.cache_resource
 def load_models():
+    import joblib, os
+    models_dir = ROOT / "models_saved"
+
+    # Debug info
+    res_path = models_dir / "resolution_xgb.pkl"
+    esc_path = models_dir / "escalation_xgb.pkl"
+    feat_path = models_dir / "feature_columns.pkl"
+
+    # If models missing, train them on the fly
+    if not res_path.exists():
+        try:
+            sys.path.insert(0, str(ROOT / "src" / "models"))
+            os.environ["DB_PATH"] = str(ROOT / "data" / "grievances.db")
+            from resolution_predictor import load_features, build_feature_matrix
+            from resolution_predictor import train_resolution_model, train_escalation_model
+            from resolution_predictor import save_models
+            import warnings; warnings.filterwarnings("ignore")
+            df = load_features()
+            X, cat_cols, num_cols = build_feature_matrix(df)
+            res_model, *_ = train_resolution_model(df, X)
+            esc_model, *_ = train_escalation_model(df, X)
+            save_models(res_model, esc_model, list(X.columns))
+        except Exception as train_err:
+            st.error(f"Could not train models: {train_err}")
+            return None, None, None
+
     try:
-        import joblib
-        res_model    = joblib.load(ROOT / "models_saved" / "resolution_xgb.pkl")
-        esc_model    = joblib.load(ROOT / "models_saved" / "escalation_xgb.pkl")
-        feature_cols = joblib.load(ROOT / "models_saved" / "feature_columns.pkl")
+        res_model    = joblib.load(res_path)
+        esc_model    = joblib.load(esc_path)
+        feature_cols = joblib.load(feat_path)
         return res_model, esc_model, feature_cols
     except Exception as e:
+        st.error(f"Model load error: {e}")
         return None, None, None
 
 
